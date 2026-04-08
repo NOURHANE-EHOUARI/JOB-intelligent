@@ -49,7 +49,7 @@ def normaliser_offre(offre: dict) -> dict:
         "salaire":      salaire,
         "experience":   experience,
         "competences":  ", ".join(competences),
-        "description":  offre.get("description", "")[:500],  # limité à 500 chars
+        "description":  offre.get("description", "")[:2000],  # limité à 500 chars
         "date_publication": offre.get("dateCreation", "")[:10],
         "url":          offre.get("origineOffre", {}).get("urlOrigine", ""),
         "source":       "France Travail"
