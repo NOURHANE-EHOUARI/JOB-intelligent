@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+*.log
+logs/
+data/raw/
+mysql-data/
+config/
+.env
+*.db
