@@ -49,17 +49,19 @@ class AdzunaScraper(BaseScraper):
         return offers
 
     def parse_offer(self, raw: dict) -> JobOffer:
+        salary_min = raw.get("salary_min")
+        salary_max = raw.get("salary_max")
+        salaire = f"{salary_min:.0f}–{salary_max:.0f}€" if salary_min else "Non précisé"
+
         return JobOffer(
-            title=raw.get("title", "N/A"),
-            company=raw.get("company", {}).get("display_name", "N/A"),
-            location=raw.get("location", {}).get("display_name", "N/A"),
+            titre=raw.get("title", "Non précisé"),
+            entreprise=raw.get("company", {}).get("display_name", "Non précisé"),
+            ville=raw.get("location", {}).get("display_name", "Non précisé"),
             source="adzuna",
-            url=raw.get("redirect_url", "N/A"),
-            description=raw.get("description", ""),
-            salary=(
-                f"{raw['salary_min']:.0f}–{raw['salary_max']:.0f}€"
-                if raw.get("salary_min") else None
-            ),
-            contract_type=raw.get("contract_type", None),
-            posted_at=raw.get("created", None),
+            url=raw.get("redirect_url", ""),
+            description=raw.get("description", "")[:500],
+            contrat=raw.get("contract_type", "Non précisé"),
+            salaire=salaire,
+            date_publication=raw.get("created", "")[:10],
+            competences="",
         )

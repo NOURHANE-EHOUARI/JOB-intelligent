@@ -17,4 +17,4 @@ offers = scraper.scrape()
 save_offers(offers, "adzuna")
 
 for o in offers[:3]:
-    print(o.title, "|", o.company, "|", o.location, "|", o.salary)
+    print(o.titre, "|", o.entreprise, "|", o.ville, "|", o.salaire)

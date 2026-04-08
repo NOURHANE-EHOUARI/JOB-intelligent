@@ -5,16 +5,18 @@ import uuid, json
 
 @dataclass
 class JobOffer:
-    title: str
-    company: str
-    location: str
-    source: str                        # "indeed" | "linkedin" | "france_travail"
+    titre: str
+    entreprise: str
+    ville: str
+    source: str                          # "adzuna" | "france_travail"
     url: str
     description: str
-    contract_type: Optional[str] = None   # CDI, CDD, Freelance...
-    salary: Optional[str] = None
-    skills: list[str] = field(default_factory=list)
-    posted_at: Optional[str] = None
+    code_postal: Optional[str] = None
+    contrat: Optional[str] = None
+    salaire: Optional[str] = None
+    experience: Optional[str] = None
+    competences: str = ""                # comma-separated string like her format
+    date_publication: Optional[str] = None
     scraped_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 

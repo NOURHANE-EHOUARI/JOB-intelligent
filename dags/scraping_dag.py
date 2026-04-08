@@ -27,7 +27,7 @@ def run_adzuna_scraper():
     )
     offers = scraper.scrape()
     save_offers(offers, "adzuna")
-    print(f"Done: {len(offers)} offers saved.")
+    print(f"Done: {len(offers)} offres sauvegardées.")
 
 with DAG(
     dag_id="job_scraping_dag",
