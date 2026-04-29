@@ -224,4 +224,3 @@ def collecter_glassdoor():
 
 if __name__ == "__main__":
     collecter_glassdoor()
-    
