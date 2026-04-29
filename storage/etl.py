@@ -22,34 +22,42 @@ def upsert_offers(offers: list[dict]):
     session = SessionLocal()
     inserted = 0
     skipped = 0
+    errors = 0
     try:
         for offer in offers:
-            stmt = insert(OffreEmploi).values(
-                id=offer.get("id"),
-                titre=offer.get("titre", offer.get("title", "N/A")),
-                entreprise=offer.get("entreprise", offer.get("company", "N/A")),
-                ville=offer.get("ville", offer.get("location", "N/A")),
-                code_postal=offer.get("code_postal"),
-                contrat=offer.get("contrat", offer.get("contract_type")),
-                salaire=offer.get("salaire", offer.get("salary")),
-                experience=offer.get("experience"),
-                competences=offer.get("competences", ""),
-                description=offer.get("description", ""),
-                date_publication=offer.get("date_publication"),
-                url=offer.get("url", ""),
-                source=offer.get("source", "unknown"),
-                scraped_at=offer.get("scraped_at", ""),
-            ).on_conflict_do_nothing(index_elements=["id"])
-            result = session.execute(stmt)
-            if result.rowcount > 0:
-                inserted += 1
-            else:
-                skipped += 1
-        session.commit()
-        print(f"Inserted: {inserted} | Skipped (duplicates): {skipped}")
-    except Exception as e:
-        session.rollback()
-        raise e
+            try:
+                # Skip offers with no title
+                titre = offer.get("titre") or offer.get("title")
+                if not titre:
+                    errors += 1
+                    continue
+
+                stmt = insert(OffreEmploi).values(
+                    id=offer.get("id"),
+                    titre=titre,
+                    entreprise=offer.get("entreprise", offer.get("company", "Non précisé")),
+                    ville=offer.get("ville", offer.get("location", "Non précisé")),
+                    code_postal=offer.get("code_postal"),
+                    contrat=offer.get("contrat", offer.get("contract_type")),
+                    salaire=offer.get("salaire", offer.get("salary")),
+                    experience=offer.get("experience"),
+                    competences=offer.get("competences", ""),
+                    description=offer.get("description", ""),
+                    date_publication=offer.get("date_publication"),
+                    url=offer.get("url", ""),
+                    source=offer.get("source", "unknown"),
+                    scraped_at=offer.get("scraped_at", ""),
+                ).on_conflict_do_nothing(index_elements=["id"])
+                result = session.execute(stmt)
+                session.commit()
+                if result.rowcount > 0:
+                    inserted += 1
+                else:
+                    skipped += 1
+            except Exception as e:
+                session.rollback()
+                errors += 1
+        print(f"Inserted: {inserted} | Skipped (duplicates): {skipped} | Errors: {errors}")
     finally:
         session.close()
 
@@ -69,7 +77,23 @@ def run_etl():
         print(f"Loading France Travail CSV...")
         offers = load_france_travail_csv(str(ft_csv))
         upsert_offers(offers)
-
+   
+    # Load other CSV files
+    data_csvs = [
+      "scrapers/offres_arbeitnow.csv",
+      "scrapers/offres_indeed.csv",
+      "scrapers/offres_linkedin.csv",
+      "offres_reed.csv",
+    ]
+    for csv_path in data_csvs:
+       
+      p = Path(csv_path)
+      if p.exists() and p.stat().st_size > 100:  # skip empty files
+        print(f"Loading {p.name}...")
+        offers = load_france_travail_csv(str(p))
+        upsert_offers(offers)
+      elif p.exists():
+        print(f"Skipping {p.name} (empty)")
     print("ETL terminé.")
 if __name__ == "__main__":
     run_etl()
