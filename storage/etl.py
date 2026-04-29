@@ -57,8 +57,8 @@ def run_etl():
     init_db()
     raw_dir = Path("data/raw")
 
-    # Load Adzuna JSON files
-    for f in sorted(raw_dir.glob("adzuna_*.json")):
+    # Load all JSON files (Adzuna, Remotive, TheMuse, Jobicy)
+    for f in sorted(raw_dir.glob("*.json")):
         print(f"Loading {f.name}...")
         offers = load_adzuna_json(str(f))
         upsert_offers(offers)
@@ -71,6 +71,5 @@ def run_etl():
         upsert_offers(offers)
 
     print("ETL terminé.")
-
 if __name__ == "__main__":
     run_etl()
