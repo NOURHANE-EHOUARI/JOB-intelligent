@@ -37,8 +37,14 @@ def run_adzuna():
 def run_france_travail():
     import importlib.util, sys, os
 
-    base = f"{BASE_PATH}/france_travail"
-    for module_name, filename in [("client", "client.py"), ("normalizer", "normalizer.py")]:
+    base = "/opt/airflow/france_travail"
+    
+    # Charger les 3 modules dans le bon ordre
+    for module_name, filename in [
+        ("auth", "auth.py"),
+        ("client", "client.py"),
+        ("normalizer", "normalizer.py")
+    ]:
         spec = importlib.util.spec_from_file_location(
             module_name, os.path.join(base, filename)
         )
@@ -49,21 +55,19 @@ def run_france_travail():
     from client import search_offres
     from normalizer import normaliser_liste
 
-    METIERS = [
-        "data scientist", "data engineer", "data analyst",
-        "machine learning", "business intelligence"
-    ]
+    METIERS = ["data scientist", "data engineer", "data analyst", "machine learning", "business intelligence"]
     toutes_offres = []
     for metier in METIERS:
         offres = search_offres(mots_cles=metier, max_offres=100)
         toutes_offres.extend(offres)
         print(f"   → {len(offres)} offres pour '{metier}'")
 
+    import pandas as pd
     df = normaliser_liste(toutes_offres)
     df = df.drop_duplicates(subset=["id"])
-    df.to_csv(f"{BASE_PATH}/france_travail/offres_france_travail.csv", index=False, encoding="utf-8-sig")
+    df.to_csv(f"{base}/offres_france_travail.csv", index=False, encoding="utf-8-sig")
     print(f"✅ France Travail : {len(df)} offres")
-
+    
 def run_arbeitnow():
     from scrapers.arbeitnow_client import collecter_arbeitnow
     df = collecter_arbeitnow()

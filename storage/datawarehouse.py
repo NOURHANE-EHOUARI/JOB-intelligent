@@ -1,148 +1,178 @@
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime, timedelta
+import os, sys
 
-import pandas as pd
-from sqlalchemy import text
-from storage.database import get_engine
+sys.path.insert(0, "/opt/airflow")
 
-engine = get_engine()
+from dotenv import load_dotenv
+load_dotenv()
 
-def create_dwh_schema():
-    with engine.begin() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS fact_offres CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS dim_ville CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS dim_contrat CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS dim_source CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS dim_date CASCADE"))
+default_args = {
+    "owner": "hiba",
+    "retries": 2,
+    "retry_delay": timedelta(minutes=5),
+}
 
-        conn.execute(text("""
-            CREATE TABLE dim_ville (
-                id_ville SERIAL PRIMARY KEY,
-                ville VARCHAR(255) UNIQUE,
-                code_postal VARCHAR(20)
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE dim_contrat (
-                id_contrat SERIAL PRIMARY KEY,
-                type_contrat VARCHAR(100) UNIQUE
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE dim_source (
-                id_source SERIAL PRIMARY KEY,
-                nom_source VARCHAR(100) UNIQUE
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE dim_date (
-                id_date SERIAL PRIMARY KEY,
-                date_publication DATE UNIQUE,
-                jour INT, mois INT, annee INT,
-                trimestre INT, semaine INT
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE fact_offres (
-                id_offre VARCHAR PRIMARY KEY,
-                id_ville INT REFERENCES dim_ville(id_ville),
-                id_contrat INT REFERENCES dim_contrat(id_contrat),
-                id_source INT REFERENCES dim_source(id_source),
-                id_date INT REFERENCES dim_date(id_date),
-                titre VARCHAR(500),
-                entreprise VARCHAR(255),
-                salaire VARCHAR(255),
-                competences TEXT,
-                description TEXT
-            )
-        """))
-    print("Schema DWH créé.")
+BASE_PATH = "/opt/airflow"
 
-def populate_dwh():
-    df = pd.read_sql("SELECT * FROM offres_emploi", engine)
-    print(f"Source: {len(df)} offres")
+# ──────────────────────────────────────────────────────────────
+# Scrapers
+# ──────────────────────────────────────────────────────────────
 
-    with engine.begin() as conn:
-        # dim_ville
-        villes = df[["ville", "code_postal"]].drop_duplicates().fillna("")
-        for _, row in villes.iterrows():
-            conn.execute(text("""
-                INSERT INTO dim_ville (ville, code_postal)
-                VALUES (:ville, :code_postal)
-                ON CONFLICT (ville) DO NOTHING
-            """), {"ville": row["ville"], "code_postal": row["code_postal"]})
+def run_adzuna():
+    from scrapers.adzuna_scraper import AdzunaScraper
+    from storage.raw_storage import save_offers
+    scraper = AdzunaScraper(
+        keywords=["data engineer", "data scientist", "data analyst"],
+        location="Paris",
+        app_id=os.getenv("ADZUNA_APP_ID"),
+        app_key=os.getenv("ADZUNA_APP_KEY"),
+        max_pages=5
+    )
+    offers = scraper.scrape()
+    save_offers(offers, "adzuna")
+    print(f"✅ Adzuna : {len(offers)} offres")
 
-        # dim_contrat
-        for c in df["contrat"].dropna().unique():
-            conn.execute(text("""
-                INSERT INTO dim_contrat (type_contrat) VALUES (:c)
-                ON CONFLICT (type_contrat) DO NOTHING
-            """), {"c": str(c)})
+def run_france_travail():
+    import importlib.util, sys, os
+    base = f"{BASE_PATH}/france_travail"
+    for module_name, filename in [("client", "client.py"), ("normalizer", "normalizer.py")]:
+        spec = importlib.util.spec_from_file_location(
+            module_name, os.path.join(base, filename)
+        )
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = mod
+        spec.loader.exec_module(mod)
+    from client import search_offres
+    from normalizer import normaliser_liste
+    METIERS = ["data scientist", "data engineer", "data analyst", "machine learning", "business intelligence"]
+    toutes_offres = []
+    for metier in METIERS:
+        offres = search_offres(mots_cles=metier, max_offres=100)
+        toutes_offres.extend(offres)
+        print(f"   → {len(offres)} offres pour '{metier}'")
+    import pandas as pd
+    df = normaliser_liste(toutes_offres)
+    df = df.drop_duplicates(subset=["id"])
+    df.to_csv(f"{BASE_PATH}/france_travail/offres_france_travail.csv", index=False, encoding="utf-8-sig")
+    print(f"✅ France Travail : {len(df)} offres")
 
-        # dim_source
-        for s in df["source"].dropna().unique():
-            conn.execute(text("""
-                INSERT INTO dim_source (nom_source) VALUES (:s)
-                ON CONFLICT (nom_source) DO NOTHING
-            """), {"s": str(s)})
+def run_arbeitnow():
+    from scrapers.arbeitnow_client import collecter_arbeitnow
+    df = collecter_arbeitnow()
+    print(f"✅ Arbeitnow : {len(df)} offres")
 
-        # dim_date
-        dates = df["date_publication"].dropna()
-        dates = dates[dates.str.match(r"\d{4}-\d{2}-\d{2}", na=False)].unique()
-        for d in dates:
-            try:
-                dt = pd.to_datetime(d)
-                conn.execute(text("""
-                    INSERT INTO dim_date (date_publication, jour, mois, annee, trimestre, semaine)
-                    VALUES (:date, :jour, :mois, :annee, :trim, :sem)
-                    ON CONFLICT (date_publication) DO NOTHING
-                """), {
-                    "date": dt.date(), "jour": dt.day, "mois": dt.month,
-                    "annee": dt.year, "trim": (dt.month - 1) // 3 + 1,
-                    "sem": dt.isocalendar()[1]
-                })
-            except Exception:
-                pass
+def run_findwork():
+    from scrapers.findwork_scraper import FindworkScraper
+    from storage.raw_storage import save_offers
+    scraper = FindworkScraper(
+        keywords=["data engineer", "data scientist", "data analyst"],
+        max_pages=5
+    )
+    offers = scraper.scrape()
+    save_offers(offers, "findwork")
+    print(f"✅ Findwork : {len(offers)} offres")
 
-        print("Dimensions populated.")
+def run_themuse():
+    from scrapers.themuse_scraper import TheMuseScraper
+    from storage.raw_storage import save_offers
+    scraper = TheMuseScraper(
+        keywords=["data engineer", "data scientist", "data analyst"],
+        max_pages=5
+    )
+    offers = scraper.scrape()
+    save_offers(offers, "themuse")
+    print(f"✅ TheMuse : {len(offers)} offres")
 
-        # Load maps
-        ville_map = {r.ville: r.id_ville for r in conn.execute(text("SELECT id_ville, ville FROM dim_ville"))}
-        contrat_map = {r.type_contrat: r.id_contrat for r in conn.execute(text("SELECT id_contrat, type_contrat FROM dim_contrat"))}
-        source_map = {r.nom_source: r.id_source for r in conn.execute(text("SELECT id_source, nom_source FROM dim_source"))}
-        date_map = {str(r.date_publication): r.id_date for r in conn.execute(text("SELECT id_date, date_publication FROM dim_date"))}
+def run_linkedin():
+    from scrapers.linkedin_client import collecter_linkedin
+    df = collecter_linkedin()
+    print(f"✅ LinkedIn : {len(df)} offres")
 
-        inserted = 0
-        for _, row in df.iterrows():
-            try:
-                conn.execute(text("""
-                    INSERT INTO fact_offres
-                        (id_offre, id_ville, id_contrat, id_source, id_date,
-                         titre, entreprise, salaire, competences, description)
-                    VALUES
-                        (:id, :ville, :contrat, :source, :date,
-                         :titre, :entreprise, :salaire, :competences, :description)
-                    ON CONFLICT DO NOTHING
-                """), {
-                    "id": row["id"],
-                    "ville": ville_map.get(row.get("ville")),
-                    "contrat": contrat_map.get(row.get("contrat")),
-                    "source": source_map.get(row.get("source")),
-                    "date": date_map.get(str(row.get("date_publication", ""))[:10]),
-                    "titre": row.get("titre"),
-                    "entreprise": row.get("entreprise"),
-                    "salaire": row.get("salaire"),
-                    "competences": row.get("competences"),
-                    "description": row.get("description"),
-                })
-                inserted += 1
-            except Exception as e:
-                print(f"Error: {e}")
-                pass
+def run_jsearch():
+    from scrapers.jsearch_client import collecter_indeed
+    df = collecter_indeed()
+    print(f"✅ JSearch/Indeed : {len(df)} offres")
 
-        print(f"fact_offres: {inserted} lignes insérées.")
-    print("Data Warehouse peuplé avec succès.")
+def run_remotive():
+    from scrapers.remotive_scraper import RemotiveScraper
+    from storage.raw_storage import save_offers
+    scraper = RemotiveScraper(
+        keywords=["data engineer", "data scientist", "data analyst"],
+    )
+    offers = scraper.scrape()
+    save_offers(offers, "remotive")
+    print(f"✅ Remotive : {len(offers)} offres")
 
-if __name__ == "__main__":
+def run_jobicy():
+    from scrapers.jobicy_scraper import JobicyScraper
+    from storage.raw_storage import save_offers
+    scraper = JobicyScraper(
+        keywords=["data engineer", "data scientist", "data analyst"],
+    )
+    offers = scraper.scrape()
+    save_offers(offers, "jobicy")
+    print(f"✅ Jobicy : {len(offers)} offres")
+
+# ──────────────────────────────────────────────────────────────
+# ETL → PostgreSQL opérationnel
+# ──────────────────────────────────────────────────────────────
+
+def run_etl():
+    os.chdir(BASE_PATH)
+    from storage.etl import run_etl as etl
+    etl()
+    print("✅ ETL terminé — données chargées dans PostgreSQL")
+
+# ──────────────────────────────────────────────────────────────
+# Data Warehouse — schéma étoile
+# ──────────────────────────────────────────────────────────────
+
+def run_datawarehouse():
+    os.chdir(BASE_PATH)
+    from storage.datawarehouse import create_dwh_schema, populate_dwh
     create_dwh_schema()
     populate_dwh()
+    print("✅ Data Warehouse mis à jour")
+
+# ──────────────────────────────────────────────────────────────
+# DAG
+# ──────────────────────────────────────────────────────────────
+
+with DAG(
+    dag_id="job_scraping_dag",
+    description="Scraping 9 sources + ETL + Data Warehouse",
+    default_args=default_args,
+    start_date=datetime(2026, 4, 1),
+    schedule_interval="0 8 * * *",  # tous les jours à 8h
+    catchup=False,
+    tags=["scraping", "etl", "datawarehouse", "phase1"],
+) as dag:
+
+    t_adzuna         = PythonOperator(task_id="scrape_adzuna",         python_callable=run_adzuna)
+    t_france_travail = PythonOperator(task_id="scrape_france_travail", python_callable=run_france_travail)
+    t_arbeitnow      = PythonOperator(task_id="scrape_arbeitnow",      python_callable=run_arbeitnow)
+    t_findwork       = PythonOperator(task_id="scrape_findwork",       python_callable=run_findwork)
+    t_themuse        = PythonOperator(task_id="scrape_themuse",        python_callable=run_themuse)
+    t_linkedin       = PythonOperator(task_id="scrape_linkedin",       python_callable=run_linkedin)
+    t_jsearch        = PythonOperator(task_id="scrape_jsearch",        python_callable=run_jsearch)
+    t_remotive       = PythonOperator(task_id="scrape_remotive",       python_callable=run_remotive)
+    t_jobicy         = PythonOperator(task_id="scrape_jobicy",         python_callable=run_jobicy)
+
+    t_etl = PythonOperator(task_id="etl_postgresql",  python_callable=run_etl)
+    t_dwh = PythonOperator(task_id="data_warehouse",  python_callable=run_datawarehouse)
+
+    # Pipeline complet :
+    # Tous les scrapers en parallèle → ETL → Data Warehouse
+    [
+        t_adzuna,
+        t_france_travail,
+        t_arbeitnow,
+        t_findwork,
+        t_themuse,
+        t_linkedin,
+        t_jsearch,
+        t_remotive,
+        t_jobicy,
+    ] >> t_etl >> t_dwh
