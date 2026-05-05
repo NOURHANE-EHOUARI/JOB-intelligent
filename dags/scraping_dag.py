@@ -5,6 +5,7 @@ import os, sys, json
 import pandas as pd
 
 sys.path.insert(0, "/opt/airflow")
+sys.path.insert(0, "/opt/airflow/utils")
 from dotenv import load_dotenv
 load_dotenv()
 
