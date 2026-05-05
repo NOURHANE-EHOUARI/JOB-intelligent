@@ -5,7 +5,6 @@ __pycache__/
 logs/
 mysql-data/
 config/
-.env
 *.db
 venv/
 recommandation/cache/

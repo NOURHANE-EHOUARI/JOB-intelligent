@@ -143,6 +143,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
+    RUNNING_IN_DOCKER: "true"
     command: webserver
     ports:
       - "8080:8080"
@@ -165,6 +166,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
+    RUNNING_IN_DOCKER: "true"
     command: scheduler
     env_file:
       - .env
@@ -182,6 +184,7 @@ services:
 
   airflow-dag-processor:
     <<: *airflow-common
+    RUNNING_IN_DOCKER: "true"
     command: dag-processor
     env_file:
       - .env
@@ -225,6 +228,7 @@ services:
 
   airflow-triggerer:
     <<: *airflow-common
+    RUNNING_IN_DOCKER: "true"
     command: triggerer
     env_file:
       - .env
