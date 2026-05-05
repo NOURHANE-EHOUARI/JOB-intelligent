@@ -2,6 +2,11 @@ import requests
 import pandas as pd
 import time
 
+# ──────────────────────────────────────────────────────────────
+# AJOUT TÂCHE 4 : Import config NLP pour le filtre qualité
+# ──────────────────────────────────────────────────────────────
+from utils.nlp_config import load_nlp_config
+
 RAPIDAPI_KEY  = "8c8f7b45a4mshecb7e0ad34d8b00p141cd8jsn78528ddea3df"
 RAPIDAPI_HOST = "linkedin-job-search-api.p.rapidapi.com"
 
@@ -12,6 +17,35 @@ METIERS = [
     "machine learning",
     "business intelligence"
 ]
+
+# ──────────────────────────────────────────────────────────────
+# AJOUT TÂCHE 4 : Fonction de validation qualité (standalone)
+# ──────────────────────────────────────────────────────────────
+def validate_offer_quality(title: str, description: str) -> bool:
+    """
+    Filtre pré-ETL : rejette les offres trop courtes ou contenant des mots-clés négatifs.
+    Version standalone pour les scripts fonctionnels (non-class-based).
+    """
+    cfg = load_nlp_config()
+    filters = cfg["scraping_filters"]
+    negatives = cfg["negative_keywords"]
+    
+    text = f"{title} {description}".lower()
+    
+    # 1. Longueur minimale de description
+    if len(description) < filters["description_min_length"]:
+        return False
+        
+    # 2. Mots-clés négatifs (spam/stage non rémunéré/arnaque)
+    if any(neg in text for neg in negatives):
+        return False
+        
+    # 3. Au moins un mot-clé technique requis
+    if not any(kw in text for kw in filters["required_tech_keywords"]):
+        return False
+        
+    return True
+
 
 def search_linkedin(query: str, offset: int = 0) -> list:
     """
@@ -48,6 +82,13 @@ def normaliser_linkedin(offre: dict) -> dict:
     """
     Normalise une offre LinkedIn brute en format unifié.
     """
+    # ✅ AJOUT TÂCHE 4 : Validation qualité pré-normalisation
+    title = offre.get("title", "").strip().title()
+    description = str(offre.get("description", ""))
+    
+    if not validate_offer_quality(title, description):
+        return None  # Rejeter l'offre si elle ne passe pas les filtres
+    
     # Localisation
     lieu = offre.get("location", {})
     if isinstance(lieu, dict):
@@ -89,7 +130,7 @@ def normaliser_linkedin(offre: dict) -> dict:
 
     return {
         "id":               offre.get("id", ""),
-        "titre":            offre.get("title", "").strip().title(),
+        "titre":            title,
         "entreprise":       entreprise,
         "ville":            ville,
         "code_postal":      "",
@@ -98,7 +139,7 @@ def normaliser_linkedin(offre: dict) -> dict:
         "experience":       offre.get("experience_level", "Non précisé"),
         "competences":      competences,
         "competences_extraites": competences,
-        "description":      str(offre.get("description", ""))[:500],
+        "description":      description[:500],
         "date_publication": str(offre.get("created_at", ""))[:10],
         "url":              offre.get("url", ""),
         "source":           "LinkedIn"
@@ -127,7 +168,10 @@ def collecter_linkedin():
 
     # Normalisation
     print("\n⚙️  Normalisation des données...")
+    # ✅ AJOUT TÂCHE 4 : Filtrer les None retournés par validate_offer_quality
     normalisees = [normaliser_linkedin(o) for o in toutes]
+    normalisees = [n for n in normalisees if n is not None]  # Skip rejected offers
+    
     df = pd.DataFrame(normalisees)
 
     # Déduplication

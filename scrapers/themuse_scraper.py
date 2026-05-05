@@ -5,6 +5,11 @@ import requests
 from models.job_offer import JobOffer
 from scrapers.base_scraper import BaseScraper
 
+# ──────────────────────────────────────────────────────────────
+# AJOUT TÂCHE 4 : Import config NLP pour le filtre qualité
+# ──────────────────────────────────────────────────────────────
+from utils.nlp_config import load_nlp_config
+
 class TheMuseScraper(BaseScraper):
     BASE_URL = "https://www.themuse.com/api/public/jobs"
 
@@ -29,7 +34,10 @@ class TheMuseScraper(BaseScraper):
                 if not results:
                     break
                 for job in results:
-                    offers.append(self.parse_offer(job))
+                    # ✅ AJOUT TÂCHE 4 : Ne garder que les offres validées
+                    offer = self.parse_offer(job)
+                    if offer:  # skip if parse_offer returned None (failed validation)
+                        offers.append(offer)
                 self.logger.info(f"TheMuse page {page+1}: {len(results)} offres")
             except requests.RequestException as e:
                 self.logger.error(f"TheMuse error: {e}")
@@ -37,6 +45,13 @@ class TheMuseScraper(BaseScraper):
         return offers
 
     def parse_offer(self, raw: dict) -> JobOffer:
+        # ✅ AJOUT TÂCHE 4 : Validation qualité pré-création du JobOffer
+        title = raw.get("name", "N/A")
+        description = raw.get("contents", "")
+        
+        if not self.validate_offer_quality(title, description):
+            return None  # Rejeter l'offre si elle ne passe pas les filtres
+        
         locations = raw.get("locations", [])
         ville = locations[0].get("name", "Remote") if locations else "Remote"
         levels = raw.get("levels", [])
@@ -44,12 +59,12 @@ class TheMuseScraper(BaseScraper):
         company = raw.get("company", {}).get("name", "N/A")
 
         return JobOffer(
-            titre=raw.get("name", "N/A"),
+            titre=title,
             entreprise=company,
             ville=ville,
             source="themuse",
             url=raw.get("refs", {}).get("landing_page", ""),
-            description=raw.get("contents", "")[:500],
+            description=description[:500],
             contrat="N/A",
             salaire="Non précisé",
             experience=experience,

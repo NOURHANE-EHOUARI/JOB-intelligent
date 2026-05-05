@@ -6,6 +6,11 @@ import time
 from models.job_offer import JobOffer
 from scrapers.base_scraper import BaseScraper
 
+# ──────────────────────────────────────────────────────────────
+# AJOUT TÂCHE 4 : Import config NLP pour le filtre qualité
+# ──────────────────────────────────────────────────────────────
+from utils.nlp_config import load_nlp_config
+
 FINDWORK_API_KEY = "b6f5ea050bcd7c670adf34e5a59d4c942457ea3a"
 
 class FindworkScraper(BaseScraper):
@@ -42,7 +47,10 @@ class FindworkScraper(BaseScraper):
                         if job_id in seen_ids:
                             continue
                         seen_ids.add(job_id)
-                        offers.append(self.parse_offer(job))
+                        # ✅ AJOUT TÂCHE 4 : Ne garder que les offres validées
+                        offer = self.parse_offer(job)
+                        if offer:  # skip if parse_offer returned None (failed validation)
+                            offers.append(offer)
 
                     self.logger.info(f"Findwork '{keyword}' page {page}: {len(results)} offres")
                     url = data.get("next")
@@ -56,6 +64,13 @@ class FindworkScraper(BaseScraper):
         return offers
 
     def parse_offer(self, raw: dict) -> JobOffer:
+        # ✅ AJOUT TÂCHE 4 : Validation qualité pré-création du JobOffer
+        title = raw.get("role") or raw.get("title") or "Non précisé"
+        description = raw.get("text", "")
+        
+        if not self.validate_offer_quality(title, description):
+            return None  # Rejeter l'offre si elle ne passe pas les filtres
+        
         keywords = raw.get("keywords", []) or []
         if not keywords:
             competences = ""
@@ -65,12 +80,12 @@ class FindworkScraper(BaseScraper):
            competences = ", ".join(keywords)
         return JobOffer(
             id=str(raw.get("id", "")),
-            titre = raw.get("role") or raw.get("title") or "Non précisé",
+            titre = title,
             entreprise=raw.get("company_name", "Non précisé"),
             ville=raw.get("location", "Remote") or "Remote",
             source="findwork",
             url=raw.get("url", ""),
-            description=raw.get("text", "")[:500],
+            description=description[:500],
             contrat="Remote" if raw.get("remote") else "N/A",
             salaire="Non précisé",
             date_publication=raw.get("date_posted", "")[:10],

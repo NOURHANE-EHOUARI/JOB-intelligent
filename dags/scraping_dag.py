@@ -16,7 +16,7 @@ default_args = {
 
 BASE_PATH = "/opt/airflow"
 
-# ──────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 # Scrapers
 # ──────────────────────────────────────────────────────────────
 
@@ -130,7 +130,7 @@ def run_jobicy():
     print(f"✅ Jobicy : {len(offers)} offres")
     return len(offers)
 
-# ──────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 # ETL
 # ──────────────────────────────────────────────────────────────
 
@@ -162,6 +162,36 @@ def make_upload_task(source_name: str, scrape_task_id: str):
         print(f"✅ {source_name} uploaded to Azure Bronze: {path}")
     upload_fn.__name__ = f"upload_{source_name}_fn"
     return upload_fn
+
+# ──────────────────────────────────────────────────────────────
+# SILVER TRANSFORM (Colleague Task)
+# ──────────────────────────────────────────────────────────────
+
+def run_silver_transform(**context):
+    """Applique les règles Silver sur les données consolidées."""
+    import pandas as pd
+    import glob
+    from utils.silver_transforms import transform_to_silver
+    
+    bronze_dir = os.path.join(BASE_PATH, "data", "bronze")
+    silver_dir = os.path.join(BASE_PATH, "data", "silver")
+    os.makedirs(silver_dir, exist_ok=True)
+    
+    # Agrège tous les fichiers Bronze
+    csv_files = glob.glob(os.path.join(bronze_dir, "*.csv"))
+    if not csv_files:
+        print("⚠️ Aucun fichier Bronze trouvé. Skip Silver transform.")
+        return
+        
+    print(f"📥 Chargement de {len(csv_files)} fichiers Bronze...")
+    df_raw = pd.concat([pd.read_csv(f) for f in csv_files], ignore_index=True)
+    
+    # Applique la fonction orchestratrice créée précédemment
+    df_silver = transform_to_silver(df_raw)
+    
+    output_path = os.path.join(silver_dir, "offres_silver.csv")
+    df_silver.to_csv(output_path, index=False)
+    print(f"✅ Silver transform terminé: {len(df_silver)} records sauvegardés.")
 
 # ──────────────────────────────────────────────────────────────
 # DAG
@@ -202,12 +232,20 @@ with DAG(
     # ── ETL task ──
     t_etl = PythonOperator(task_id="etl_postgresql", python_callable=run_etl)
 
+    # ─ Silver Transform task (Colleague) ──
+    transform_silver = PythonOperator(
+        task_id='transform_silver',
+        python_callable=run_silver_transform,
+        provide_context=True,
+        dag=dag
+    )
+
     # ── Pipeline: each source follows scrape → upload → ETL ──
     #
     #  scrape_adzuna         → upload_adzuna_bronze         ─┐
     #  scrape_france_travail → upload_france_travail_bronze ─┤
-    #  scrape_arbeitnow      → upload_arbeitnow_bronze      ─┤
-    #  scrape_findwork       → upload_findwork_bronze       ─┤→ etl_postgresql
+    #  scrape_arbeitnow      → upload_arbeitnow_bronze      ┤
+    #  scrape_findwork       → upload_findwork_bronze       ─┤→ etl_postgresql → transform_silver
     #  scrape_themuse        → upload_themuse_bronze        ─┤
     #  scrape_linkedin       → upload_linkedin_bronze       ─┤
     #  scrape_jsearch        → upload_jsearch_bronze        ─┤
@@ -223,3 +261,6 @@ with DAG(
     t_jsearch        >> t_upload_jsearch        >> t_etl
     t_remotive       >> t_upload_remotive       >> t_etl
     t_jobicy         >> t_upload_jobicy         >> t_etl
+
+    # ─ Silver dependency ──
+    t_etl >> transform_silver

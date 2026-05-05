@@ -5,6 +5,11 @@ import requests
 from models.job_offer import JobOffer
 from scrapers.base_scraper import BaseScraper
 
+# ──────────────────────────────────────────────────────────────
+# AJOUT TÂCHE 4 : Import config NLP pour le filtre qualité
+# ──────────────────────────────────────────────────────────────
+from utils.nlp_config import load_nlp_config
+
 class JobicyScraper(BaseScraper):
     BASE_URL = "https://jobicy.com/api/v2/remote-jobs"
 
@@ -28,27 +33,37 @@ class JobicyScraper(BaseScraper):
             if any(k in j.get("jobTitle", "").lower() for k in keywords)
         ]
         for job in filtered:
-            offers.append(self.parse_offer(job))
+            # ✅ AJOUT TÂCHE 4 : Ne garder que les offres validées
+            offer = self.parse_offer(job)
+            if offer:  # skip if parse_offer returned None (failed validation)
+                offers.append(offer)
         self.logger.info(f"Jobicy: {len(filtered)} offres data (sur {len(jobs)} total)")
       except requests.RequestException as e:
         self.logger.error(f"Jobicy error: {e}")
       return offers
 
     def parse_offer(self, raw: dict) -> JobOffer:
-      salary_min = raw.get("salaryMin")
-      salary_max = raw.get("salaryMax")
-      currency = raw.get("salaryCurrency", "")
-      salaire = f"{salary_min}–{salary_max} {currency}" if salary_min else "Non précisé"
+        # ✅ AJOUT TÂCHE 4 : Validation qualité pré-création du JobOffer
+        title = raw.get("jobTitle", "N/A")
+        description = raw.get("jobExcerpt", "")
+        
+        if not self.validate_offer_quality(title, description):
+            return None  # Rejeter l'offre si elle ne passe pas les filtres
+        
+        salary_min = raw.get("salaryMin")
+        salary_max = raw.get("salaryMax")
+        currency = raw.get("salaryCurrency", "")
+        salaire = f"{salary_min}–{salary_max} {currency}" if salary_min else "Non précisé"
 
-      return JobOffer(
-        titre=raw.get("jobTitle", "N/A"),
-        entreprise=raw.get("companyName", "N/A"),
-        ville=raw.get("jobGeo", "Remote"),
-        source="jobicy",
-        url=raw.get("url", ""),
-        description=raw.get("jobExcerpt", "")[:500],
-        contrat=", ".join(raw.get("jobType", [])),
-        salaire=salaire,
-        date_publication=raw.get("pubDate", "")[:10],
-        competences=", ".join(raw.get("jobIndustry", [])),
-       )
+        return JobOffer(
+            titre=title,
+            entreprise=raw.get("companyName", "N/A"),
+            ville=raw.get("jobGeo", "Remote"),
+            source="jobicy",
+            url=raw.get("url", ""),
+            description=description[:500],
+            contrat=", ".join(raw.get("jobType", [])),
+            salaire=salaire,
+            date_publication=raw.get("pubDate", "")[:10],
+            competences=", ".join(raw.get("jobIndustry", [])),
+        )

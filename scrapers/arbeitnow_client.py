@@ -2,6 +2,11 @@ import requests
 import pandas as pd
 import time
 
+# ──────────────────────────────────────────────────────────────
+# AJOUT TÂCHE 4 : Import config NLP pour le filtre qualité
+# ──────────────────────────────────────────────────────────────
+from utils.nlp_config import load_nlp_config
+
 BASE_URL = "https://arbeitnow.com/api/job-board-api"
 
 METIERS = [
@@ -11,6 +16,35 @@ METIERS = [
     "machine learning",
     "business intelligence"
 ]
+
+# ──────────────────────────────────────────────────────────────
+# AJOUT TÂCHE 4 : Fonction de validation qualité (standalone)
+# ──────────────────────────────────────────────────────────────
+def validate_offer_quality(title: str, description: str) -> bool:
+    """
+    Filtre pré-ETL : rejette les offres trop courtes ou contenant des mots-clés négatifs.
+    Version standalone pour les scripts fonctionnels (non-class-based).
+    """
+    cfg = load_nlp_config()
+    filters = cfg["scraping_filters"]
+    negatives = cfg["negative_keywords"]
+    
+    text = f"{title} {description}".lower()
+    
+    # 1. Longueur minimale de description
+    if len(description) < filters["description_min_length"]:
+        return False
+        
+    # 2. Mots-clés négatifs (spam/stage non rémunéré/arnaque)
+    if any(neg in text for neg in negatives):
+        return False
+        
+    # 3. Au moins un mot-clé technique requis
+    if not any(kw in text for kw in filters["required_tech_keywords"]):
+        return False
+        
+    return True
+
 
 def search_arbeitnow(query: str, page: int = 1) -> list:
     """
@@ -34,6 +68,13 @@ def normaliser_arbeitnow(offre: dict) -> dict:
     """
     Normalise une offre Arbeitnow en format unifié.
     """
+    # ✅ AJOUT TÂCHE 4 : Validation qualité pré-normalisation
+    title = offre.get("title", "").strip().title()
+    description = str(offre.get("description", ""))
+    
+    if not validate_offer_quality(title, description):
+        return None  # Rejeter l'offre si elle ne passe pas les filtres
+    
     # Tags/compétences
     tags = offre.get("tags", []) or []
     competences = ", ".join(tags) if tags else "Non précisé"
@@ -48,7 +89,7 @@ def normaliser_arbeitnow(offre: dict) -> dict:
 
     return {
         "id":                    str(offre.get("slug", "")),
-        "titre":                 offre.get("title", "").strip().title(),
+        "titre":                 title,
         "entreprise":            offre.get("company_name", "Non précisé"),
         "ville":                 offre.get("location", "Non précisé"),
         "code_postal":           "",
@@ -57,7 +98,7 @@ def normaliser_arbeitnow(offre: dict) -> dict:
         "experience":            "Non précisé",
         "competences":           competences,
         "competences_extraites": competences,
-        "description":           str(offre.get("description", ""))[:500],
+        "description":           description[:500],
         "date_publication":      date,
         "url":                   offre.get("url", ""),
         "source":                "Arbeitnow"
@@ -86,7 +127,10 @@ def collecter_arbeitnow():
 
     # Normalisation
     print("\n⚙️  Normalisation des données...")
+    # ✅ AJOUT TÂCHE 4 : Filtrer les None retournés par validate_offer_quality
     normalisees = [normaliser_arbeitnow(o) for o in toutes]
+    normalisees = [n for n in normalisees if n is not None]  # Skip rejected offers
+    
     df = pd.DataFrame(normalisees)
 
     # Déduplication
