@@ -3,7 +3,7 @@ import yaml
 from pathlib import Path
 from typing import Dict
 
-def load_nlp_config(config_path: str = "config/nlp_config.yaml") -> Dict:
+def load_nlp_config(config_path: str = "/opt/airflow/config/nlp_config.yaml") -> Dict:
     """Charge et valide la configuration NLP depuis le YAML."""
     path = Path(config_path)
     if not path.exists():

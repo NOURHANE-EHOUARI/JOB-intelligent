@@ -41,14 +41,14 @@ class BaseScraper(ABC):
         from utils.nlp_config import load_nlp_config
         
         cfg = load_nlp_config()
-        filters = cfg["scraping_filters"]
-        negatives = cfg["negative_keywords"]
+        filters = cfg.get("scraping_filters", {})
+        negatives = cfg.get("negative_keywords", [])
         
         # Concaténer pour recherche globale
         text = f"{title} {description}".lower()
         
         # 1. Longueur minimale de description
-        if len(description) < filters["description_min_length"]:
+        if len(description) < filters.get("description_min_length", 50):
             self.logger.debug(f"❌ Rejeté (desc trop courte): {title[:50]}")
             return False
             
@@ -58,7 +58,7 @@ class BaseScraper(ABC):
             return False
             
         # 3. Au moins un mot-clé technique requis
-        if not any(kw in text for kw in filters["required_tech_keywords"]):
+        if not any(kw in text for kw in filters.get("required_tech_keywords", [])):
             self.logger.debug(f"❌ Rejeté (aucun skill requis): {title[:50]}")
             return False
             
