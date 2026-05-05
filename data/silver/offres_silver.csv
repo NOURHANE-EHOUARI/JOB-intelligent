@@ -1,0 +1,51 @@
+titre,entreprise,contrat_normalized,salaire_min,salaire_max,ville_clean,region,skills_detected,source
+Data Engineer,TechCorp,CDI,45000,55000,Paris,Île-de-France,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDI,55000,70000,Paris,Île-de-France,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDI,40000,45000,Paris,Île-de-France,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDI,50000,60000,Paris,Île-de-France,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDI,60000,75000,Paris,Île-de-France,"python,sql,spark",jobicy
+Data Engineer,TechCorp,CDI,45000,55000,Paris,Île-de-France,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDI,55000,70000,Paris,Île-de-France,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDI,40000,45000,Paris,Île-de-France,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDI,50000,60000,Paris,Île-de-France,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDI,60000,75000,Paris,Île-de-France,"python,sql,spark",jobicy
+Data Engineer,TechCorp,CDI,45000,55000,Paris,Île-de-France,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDI,55000,70000,Paris,Île-de-France,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDI,40000,45000,Paris,Île-de-France,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDI,50000,60000,Paris,Île-de-France,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDI,60000,75000,Paris,Île-de-France,"python,sql,spark",jobicy
+Data Engineer,TechCorp,CDI,45000,55000,Paris,Île-de-France,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDI,55000,70000,Paris,Île-de-France,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDI,40000,45000,Paris,Île-de-France,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDI,50000,60000,Paris,Île-de-France,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDI,60000,75000,Paris,Île-de-France,"python,sql,spark",jobicy
+Data Engineer,TechCorp,CDI,45000,55000,Lyon,Auvergne-Rhône-Alpes,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDI,55000,70000,Lyon,Auvergne-Rhône-Alpes,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDI,40000,45000,Lyon,Auvergne-Rhône-Alpes,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDI,50000,60000,Lyon,Auvergne-Rhône-Alpes,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDI,60000,75000,Lyon,Auvergne-Rhône-Alpes,"python,sql,spark",jobicy
+Data Engineer,TechCorp,CDD,45000,55000,Lyon,Auvergne-Rhône-Alpes,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDD,55000,70000,Lyon,Auvergne-Rhône-Alpes,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDD,40000,45000,Lyon,Auvergne-Rhône-Alpes,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDD,50000,60000,Lyon,Auvergne-Rhône-Alpes,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDD,60000,75000,Lyon,Auvergne-Rhône-Alpes,"python,sql,spark",jobicy
+Data Engineer,TechCorp,CDD,45000,55000,Lyon,Auvergne-Rhône-Alpes,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDD,55000,70000,Lyon,Auvergne-Rhône-Alpes,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDD,40000,45000,Lyon,Auvergne-Rhône-Alpes,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDD,50000,60000,Lyon,Auvergne-Rhône-Alpes,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDD,60000,75000,Lyon,Auvergne-Rhône-Alpes,"python,sql,spark",jobicy
+Data Engineer,TechCorp,CDD,45000,55000,Bordeaux,Nouvelle-Aquitaine,"python,sql,aws",adzuna
+Data Scientist,DataStart,CDD,55000,70000,Bordeaux,Nouvelle-Aquitaine,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,CDD,40000,45000,Bordeaux,Nouvelle-Aquitaine,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,CDD,50000,60000,Bordeaux,Nouvelle-Aquitaine,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,CDD,60000,75000,Bordeaux,Nouvelle-Aquitaine,"python,sql,spark",jobicy
+Data Engineer,TechCorp,Stage,45000,55000,Bordeaux,Nouvelle-Aquitaine,"python,sql,aws",adzuna
+Data Scientist,DataStart,Stage,55000,70000,Bordeaux,Nouvelle-Aquitaine,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,Stage,40000,45000,Bordeaux,Nouvelle-Aquitaine,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,Stage,50000,60000,Bordeaux,Nouvelle-Aquitaine,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,Stage,60000,75000,Bordeaux,Nouvelle-Aquitaine,"python,sql,spark",jobicy
+Data Engineer,TechCorp,Stage,45000,55000,Nantes,Pays de la Loire,"python,sql,aws",adzuna
+Data Scientist,DataStart,Stage,55000,70000,Nantes,Pays de la Loire,"python,ml,pytorch",linkedin
+Analyste BI,BigBank,Stage,40000,45000,Nantes,Pays de la Loire,"sql,tableau,powerbi",indeed
+DevOps,CloudCo,Stage,50000,60000,Nantes,Pays de la Loire,"docker,k8s,terraform",remotive
+Machine Learning Engineer,AI Solutions,Stage,60000,75000,Nantes,Pays de la Loire,"python,sql,spark",jobicy

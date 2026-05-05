@@ -38,7 +38,10 @@ class AdzunaScraper(BaseScraper):
                     break
 
                 for item in results:
-                    offers.append(self.parse_offer(item))
+                    # ✅ AJOUT TÂCHE 4 : Ne garder que les offres validées
+                    offer = self.parse_offer(item)
+                    if offer:  # skip if parse_offer returned None (failed validation)
+                        offers.append(offer)
 
                 self.logger.info(f"Page {page}: {len(results)} offers fetched")
 
@@ -49,17 +52,24 @@ class AdzunaScraper(BaseScraper):
         return offers
 
     def parse_offer(self, raw: dict) -> JobOffer:
+        # ✅ AJOUT TÂCHE 4 : Validation qualité pré-création du JobOffer
+        title = raw.get("title", "Non précisé")
+        description = raw.get("description", "")
+        
+        if not self.validate_offer_quality(title, description):
+            return None  # Rejeter l'offre si elle ne passe pas les filtres
+        
         salary_min = raw.get("salary_min")
         salary_max = raw.get("salary_max")
         salaire = f"{salary_min:.0f}–{salary_max:.0f}€" if salary_min else "Non précisé"
 
         return JobOffer(
-            titre=raw.get("title", "Non précisé"),
+            titre=title,
             entreprise=raw.get("company", {}).get("display_name", "Non précisé"),
             ville=raw.get("location", {}).get("display_name", "Non précisé"),
             source="adzuna",
             url=raw.get("redirect_url", ""),
-            description=raw.get("description", "")[:500],
+            description=description[:500],
             contrat=raw.get("contract_type", "Non précisé"),
             salaire=salaire,
             date_publication=raw.get("created", "")[:10],

@@ -1,77 +1,66 @@
-import requests
+from abc import ABC, abstractmethod
 from models.job_offer import JobOffer
-from scrapers.base_scraper import BaseScraper
+import logging
 
-class AdzunaScraper(BaseScraper):
-    BASE_URL = "https://api.adzuna.com/v1/api/jobs/fr/search"
+# ──────────────────────────────────────────────────────────────
+# FIX TÂCHE 4: Import déplacé en lazy pour éviter circular import
+# (L'import était ici avant → SUPPRIMÉ pour éviter le conflit)
+# ──────────────────────────────────────────────────────────────
 
-    def __init__(self, keywords: list[str], location: str,
-                 app_id: str, app_key: str, max_pages: int = 5):
-        super().__init__(keywords, location, max_pages)
-        self.app_id = app_id
-        self.app_key = app_key
+logging.basicConfig(level=logging.INFO)
 
+class BaseScraper(ABC):
+    def __init__(self, keywords: list[str], location: str, max_pages: int = 5):
+        self.keywords = keywords
+        self.location = location
+        self.max_pages = max_pages
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    @abstractmethod
     def scrape(self) -> list[JobOffer]:
-        offers = []
-        query = " ".join(self.keywords)
+        """Scrape and return a list of normalized JobOffer objects."""
+        pass
 
-        for page in range(1, self.max_pages + 1):
-            params = {
-                "app_id": self.app_id,
-                "app_key": self.app_key,
-                "results_per_page": 20,
-                "what": query,
-                "where": self.location,
-                "content-type": "application/json",
-            }
-            try:
-                response = requests.get(
-                    f"{self.BASE_URL}/{page}",
-                    params=params, timeout=10
-                )
-                response.raise_for_status()
-                data = response.json()
-                results = data.get("results", [])
-
-                if not results:
-                    self.logger.info(f"No results on page {page}, stopping.")
-                    break
-
-                for item in results:
-                    # ✅ AJOUT TÂCHE 4 : Ne garder que les offres validées
-                    offer = self.parse_offer(item)
-                    if offer:  # skip if parse_offer returned None (failed validation)
-                        offers.append(offer)
-
-                self.logger.info(f"Page {page}: {len(results)} offers fetched")
-
-            except requests.RequestException as e:
-                self.logger.error(f"Adzuna request failed: {e}")
-                break
-
-        return offers
-
+    @abstractmethod
     def parse_offer(self, raw: dict) -> JobOffer:
-        # ✅ AJOUT TÂCHE 4 : Validation qualité pré-création du JobOffer
-        title = raw.get("title", "Non précisé")
-        description = raw.get("description", "")
-        
-        if not self.validate_offer_quality(title, description):
-            return None  # Rejeter l'offre si elle ne passe pas les filtres
-        
-        salary_min = raw.get("salary_min")
-        salary_max = raw.get("salary_max")
-        salaire = f"{salary_min:.0f}–{salary_max:.0f}€" if salary_min else "Non précisé"
+        """Parse a raw dict into a JobOffer."""
+        pass
 
-        return JobOffer(
-            titre=title,
-            entreprise=raw.get("company", {}).get("display_name", "Non précisé"),
-            ville=raw.get("location", {}).get("display_name", "Non précisé"),
-            source="adzuna",
-            url=raw.get("redirect_url", ""),
-            description=description[:500],
-            contrat=raw.get("contract_type", "Non précisé"),
-            salaire=salaire,
-            date_publication=raw.get("created", "")[:10],
-            competences="",
-        )
+    # ──────────────────────────────────────────────────────────────
+    # AJOUT TÂCHE 4 : Méthode de validation qualité pré-ingestion
+    # ──────────────────────────────────────────────────────────────
+    def validate_offer_quality(self, title: str, description: str) -> bool:
+        """
+        Filtre pré-ETL : rejette les offres trop courtes ou contenant des mots-clés négatifs.
+        À appeler dans parse_offer() ou scrape() avant de créer le JobOffer.
+        
+        Returns:
+            True si l'offre passe tous les filtres, False sinon
+        """
+        # ✅ FIX: Import lazy à l'intérieur de la méthode pour éviter circular import
+        from utils.nlp_config import load_nlp_config
+        
+        cfg = load_nlp_config()
+        filters = cfg["scraping_filters"]
+        negatives = cfg["negative_keywords"]
+        
+        # Concaténer pour recherche globale
+        text = f"{title} {description}".lower()
+        
+        # 1. Longueur minimale de description
+        if len(description) < filters["description_min_length"]:
+            self.logger.debug(f"❌ Rejeté (desc trop courte): {title[:50]}")
+            return False
+            
+        # 2. Mots-clés négatifs (spam/stage non rémunéré/arnaque)
+        if any(neg in text for neg in negatives):
+            self.logger.debug(f"❌ Rejeté (mot négatif): {title[:50]}")
+            return False
+            
+        # 3. Au moins un mot-clé technique requis
+        if not any(kw in text for kw in filters["required_tech_keywords"]):
+            self.logger.debug(f"❌ Rejeté (aucun skill requis): {title[:50]}")
+            return False
+            
+        self.logger.debug(f"✅ Validé: {title[:50]}")
+        return True
