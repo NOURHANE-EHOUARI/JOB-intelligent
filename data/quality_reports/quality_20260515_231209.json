@@ -1,0 +1,48 @@
+{
+  "execution_date": "2026-05-15T23:12:09.962110+00:00",
+  "total_offers": 1448,
+  "sources": {
+    "adzuna": {
+      "count": 14,
+      "status": "\u26a0\ufe0f  LOW (14 < min 50)"
+    },
+    "france_travail": {
+      "count": 473,
+      "status": "\u2705 OK"
+    },
+    "arbeitnow": {
+      "count": 138,
+      "status": "\u2705 OK"
+    },
+    "findwork": {
+      "count": 672,
+      "status": "\u2705 OK"
+    },
+    "themuse": {
+      "count": 90,
+      "status": "\u2705 OK"
+    },
+    "linkedin": {
+      "count": 0,
+      "status": "\u2705 OK"
+    },
+    "jsearch": {
+      "count": 0,
+      "status": "\u274c ZERO RESULTS"
+    },
+    "remotive": {
+      "count": 42,
+      "status": "\u2705 OK"
+    },
+    "jobicy": {
+      "count": 19,
+      "status": "\u2705 OK"
+    }
+  },
+  "warnings": [
+    "adzuna: 14 offers \u2014 below minimum threshold of 50"
+  ],
+  "critical_failures": [
+    "jsearch: returned 0 offers (min expected: 20)"
+  ]
+}

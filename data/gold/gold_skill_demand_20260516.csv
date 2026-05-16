@@ -1,0 +1,21 @@
+﻿skill,count
+[],45532
+['Python'],1337
+['Leadership'],738
+['Communication'],699
+['Agile'],396
+['SQL'],300
+['AWS'],269
+['Power BI'],250
+['Kubernetes'],229
+['Excel'],211
+['Azure'],145
+"['Python', 'SQL']",137
+['PostgreSQL'],111
+"['Python', 'Agile']",81
+"['SQL', 'Excel']",66
+"['SQL', 'PostgreSQL']",65
+['MongoDB'],63
+['Teamwork'],62
+"['Python', 'AWS', 'PostgreSQL']",62
+"['Docker', 'Kubernetes']",58

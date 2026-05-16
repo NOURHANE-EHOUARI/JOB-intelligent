@@ -3,10 +3,7 @@ import re
 
 def charger_offres():
     """Charge les offres enrichies de la phase 2."""
-    df = pd.read_csv(
-        "../data_engineering/offres_enrichies.csv",
-        encoding="utf-8-sig"
-    )
+    df = pd.read_csv('data/silver/offres_silver.csv', low_memory=False)
     return df
 
 def matcher_offres(profil: dict, df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:

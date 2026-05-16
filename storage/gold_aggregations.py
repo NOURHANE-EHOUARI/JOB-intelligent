@@ -28,11 +28,13 @@ class GoldAggregations:
         return pd.Series([datetime.now().date()] * len(df))
 
     def compute_daily_volume(self, df: pd.DataFrame) -> pd.DataFrame:
-        dates = self._safe_date_col(df)
-        source_col = df["_source"] if "_source" in df.columns else pd.Series(["unknown"] * len(df))
-        return pd.crosstab(dates, source_col).reset_index().melt(
-            id_vars=["index"], var_name="_source", value_name="job_count"
-        ).rename(columns={"index": "date"})
+       dates = self._safe_date_col(df)
+       source_col = df["_source"] if "_source" in df.columns else pd.Series(["unknown"] * len(df))
+       ct = pd.crosstab(dates, source_col).reset_index()
+       # The date column name varies — rename it to 'date'
+       date_col = ct.columns[0]
+       ct = ct.rename(columns={date_col: "date"})
+       return ct.melt(id_vars=["date"], var_name="_source", value_name="job_count")
 
     def compute_salary_benchmarks(self, df: pd.DataFrame) -> pd.DataFrame:
         valid = df.dropna(subset=["salaire_min"]).copy()
