@@ -21,7 +21,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("datawarehouse")
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://airflow:airflow@localhost:5433/job_intelligent")
+# Inside Docker: postgres:5432, outside Docker: localhost:5433
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5433")
+DB_URL = os.getenv("DATABASE_URL", f"postgresql://airflow:airflow@{DB_HOST}:{DB_PORT}/job_intelligent")
 engine = create_engine(DB_URL, echo=False)
 
 # ──────────────────────────────────────────────────────────────
@@ -29,8 +32,8 @@ engine = create_engine(DB_URL, echo=False)
 # ──────────────────────────────────────────────────────────────
 def create_dwh_schema() -> None:
     """Create star schema tables with constraints if they don't exist."""
-    logger.info("🏗️  Creating/verifying DWH schema...")
-    with engine.connect() as conn:
+    logger.info(" Creating/verifying DWH schema...")
+    with engine.begin() as conn:
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS dim_date (
                 id_date VARCHAR(20) PRIMARY KEY,
@@ -44,31 +47,30 @@ def create_dwh_schema() -> None:
             );
             CREATE TABLE IF NOT EXISTS dim_ville (
                 id_ville VARCHAR(100) PRIMARY KEY,
-                ville VARCHAR(100),
-                code_postal VARCHAR(10)
+                ville VARCHAR(300),
+                code_postal VARCHAR(50)
             );
             CREATE TABLE IF NOT EXISTS dim_contrat (
                 id_contrat VARCHAR(50) PRIMARY KEY,
-                type_contrat VARCHAR(50) UNIQUE
+                type_contrat VARCHAR(100) UNIQUE
             );
             CREATE TABLE IF NOT EXISTS dim_source (
                 id_source VARCHAR(50) PRIMARY KEY,
-                nom_source VARCHAR(50) UNIQUE
+                nom_source VARCHAR(100) UNIQUE
             );
             CREATE TABLE IF NOT EXISTS fact_offres (
-                id_offre VARCHAR(100) PRIMARY KEY,
+                id_offre VARCHAR(500) PRIMARY KEY,
                 id_date VARCHAR(20) REFERENCES dim_date(id_date),
-                id_ville VARCHAR(100) REFERENCES dim_ville(id_ville),
-                id_contrat VARCHAR(50) REFERENCES dim_contrat(id_contrat),
-                id_source VARCHAR(50) REFERENCES dim_source(id_source),
+                id_ville VARCHAR(350) REFERENCES dim_ville(id_ville),
+                id_contrat VARCHAR(150) REFERENCES dim_contrat(id_contrat),
+                id_source VARCHAR(150) REFERENCES dim_source(id_source),
                 titre TEXT,
-                entreprise VARCHAR(150),
+                entreprise TEXT,
                 salaire TEXT,
                 competences TEXT,
                 description TEXT
             );
         """))
-        conn.commit()
     logger.info("✅ DWH schema verified.")
 
 # ──────────────────────────────────────────────────────────────
@@ -88,15 +90,14 @@ def _upsert_dimension(table: str, df: pd.DataFrame, pk_col: str) -> None:
     """
     
     records = df.to_dict(orient="records")
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text(sql), records)
-        conn.commit()
-    logger.info(f"📦 {table} upserted ({len(records)} rows)")
+    logger.info(f" {table} upserted ({len(records)} rows)")
 
 def populate_dimensions() -> None:
     """Extract distinct values from operational DB and populate dimensions."""
-    logger.info("🔄 Extracting & loading dimensions...")
-    with engine.connect() as conn:
+    logger.info(" Extracting & loading dimensions...")
+    with engine.begin() as conn:
         df_raw = pd.read_sql("SELECT * FROM offres_emploi", conn)
 
     # Normalize & clean
@@ -160,16 +161,16 @@ def populate_dimensions() -> None:
 # ──────────────────────────────────────────────────────────────
 def load_fact_table() -> None:
     """Map operational data to dimension surrogate keys & load fact_offres."""
-    logger.info("🔄 Building fact_offres...")
+    logger.info(" Building fact_offres...")
     
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         df_raw = pd.read_sql("SELECT * FROM offres_emploi", conn)
     
     if df_raw.empty:
         logger.warning("⚠️  offres_emploi is empty")
         return
 
-    logger.info(f"📊 Raw offers loaded: {len(df_raw)}")
+    logger.info(f" Raw offers loaded: {len(df_raw)}")
 
     # ── 1. Normalize fields (MUST match populate_dimensions() EXACTLY) ──
     # Ville: strip, title case, handle missing
@@ -251,9 +252,8 @@ def load_fact_table() -> None:
     logger.info(f"📋 Fact rows ready for insert: {len(df_fact)}")
 
     # ── 7. Idempotent load: truncate then insert in chunks ──
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("TRUNCATE TABLE fact_offres RESTART IDENTITY CASCADE"))
-        conn.commit()
 
     chunk_size = 200
     total = 0

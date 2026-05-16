@@ -66,11 +66,15 @@ def run_etl():
     raw_dir = Path("data/raw")
 
     # Load all JSON files (Adzuna, Remotive, TheMuse, Jobicy)
+    
     for f in sorted(raw_dir.glob("*.json")):
-        print(f"Loading {f.name}...")
+      print(f"Loading {f.name}...")
+      try:
         offers = load_adzuna_json(str(f))
         upsert_offers(offers)
-
+      except Exception as e:
+        print(f"⚠  Skipping {f.name}: {e}")
+        continue
     # Load France Travail CSV
     ft_csv = Path("france_travail/offres_france_travail.csv")
     if ft_csv.exists():

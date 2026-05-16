@@ -86,16 +86,24 @@ def run_themuse():
     return {"count": len(offers), "source": "themuse"}
 
 def run_linkedin():
-    from scrapers.linkedin_client import collecter_linkedin
-    df = collecter_linkedin()
-    print(f"✅ LinkedIn : {len(df)} offres")
-    return {"count": len(df), "source": "linkedin"}
+    try:
+        from scrapers.linkedin_client import collecter_linkedin
+        df = collecter_linkedin()
+        print(f"✅ LinkedIn : {len(df)} offres")
+        return {"count": len(df), "source": "linkedin"}
+    except Exception as e:
+        print(f"⚠️ LinkedIn failed (rate limit or API error): {e}")
+        return {"count": 0, "source": "linkedin"}
 
 def run_jsearch():
-    from scrapers.jsearch_client import collecter_indeed
-    df = collecter_indeed()
-    print(f"✅ JSearch/Indeed : {len(df)} offres")
-    return {"count": len(df), "source": "jsearch"}
+    try:
+        from scrapers.jsearch_client import collecter_indeed
+        df = collecter_indeed()
+        print(f"✅ JSearch/Indeed : {len(df)} offres")
+        return {"count": len(df), "source": "jsearch"}
+    except Exception as e:
+        print(f"⚠️ JSearch/Indeed failed (rate limit or API error): {e}")
+        return {"count": 0, "source": "jsearch"}
 
 def run_remotive():
     from scrapers.remotive_scraper import RemotiveScraper
@@ -495,8 +503,8 @@ with DAG(
     t_arbeitnow      = PythonOperator(task_id="scrape_arbeitnow",      python_callable=run_arbeitnow)
     t_findwork       = PythonOperator(task_id="scrape_findwork",       python_callable=run_findwork)
     t_themuse        = PythonOperator(task_id="scrape_themuse",        python_callable=run_themuse)
-    t_linkedin       = PythonOperator(task_id="scrape_linkedin",       python_callable=run_linkedin)
-    t_jsearch        = PythonOperator(task_id="scrape_jsearch",        python_callable=run_jsearch)
+    t_linkedin       = PythonOperator(task_id="scrape_linkedin",       python_callable=run_linkedin, retries=0)
+    t_jsearch        = PythonOperator(task_id="scrape_jsearch",        python_callable=run_jsearch, retries=0)
     t_remotive       = PythonOperator(task_id="scrape_remotive",       python_callable=run_remotive)
     t_jobicy         = PythonOperator(task_id="scrape_jobicy",         python_callable=run_jobicy)
 
